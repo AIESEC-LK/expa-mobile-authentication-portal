@@ -5,14 +5,9 @@ import {GetTokenResponse} from "@/app/auth/auth-types";
 import {getPersonId, isPersonIdPresent} from "@/utils/person-utils";
 
 export async function middleware(request: NextRequest) {
-    console.log("start of middleware 🟢")
     const lastUrl = `${process.env.BASE_URL}${request.nextUrl.pathname}`;
-    // if (lastUrl == `${process.env.NEXT_PUBLIC_BASE_URL}/` ) {
-    //     const url = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/my-projects`);
-    //     return NextResponse.redirect(url.toString());
-    // }
     
-    if (!isLoggedIn()) {    
+    if (!(await isLoggedIn())) {    
         const url = new URL(`${process.env.GIS_AUTH_ENDPOINT}/oauth/authorize`);
         url.searchParams.set("response_type", "code");
         url.searchParams.set("client_id", process.env.AUTH_CLIENT_ID!);
