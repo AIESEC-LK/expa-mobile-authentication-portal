@@ -4,23 +4,32 @@ import {getAccessTokenFromOauth} from "@/app/auth/auth-utils";
 import {GetTokenResponse} from "@/app/auth/auth-types";
 
 export async function GET(request: NextRequest) {
-    const code: string = request.nextUrl.searchParams.get("code") as string;
-    const authResponse: GetTokenResponse = await getAccessTokenFromOauth(code);
+    const code: string | null = request.nextUrl.searchParams.get('code');
+    if (!code) {
+        return NextResponse.json(
+            { error: 'Authorization code is required' },
+            { status: 400 }
+        );
+    }
 
-    const redirect_uri = (await cookies()).get("redirect_uri")?.value ? (await cookies()).get("redirect_uri")?.value : `${process.env.NEXT_PUBLIC_BASE_URL}/`;
-    console.log("Redirect URI:", redirect_uri);
+    try {
+        const authResponse: GetTokenResponse = await getAccessTokenFromOauth(code);
 
-    const response = NextResponse.redirect(redirect_uri as string, {status: 302})
+        const redirect_uri = (await cookies()).get('redirect_uri')?.value ?? process.env.NEXT_PUBLIC_BASE_URL;
 
-    response.cookies.set("access_token", authResponse.access_token, {
-        httpOnly: true,
-        secure: true,
-        maxAge: authResponse.expires_in
-    });
-    response.cookies.set("refresh_token", authResponse.refresh_token, {
-        httpOnly: true,
-        secure: true,
-    });
+        console.log('Redirect URI:', redirect_uri);
 
-    return response;
+        return NextResponse.json({
+            access_token: authResponse.access_token,
+            refresh_token: authResponse.refresh_token,
+            expires_in: authResponse.expires_in,
+            redirect_uri,
+        });
+    } catch (error) {
+        console.error('Error fetching tokens:', error);
+        return NextResponse.json(
+            { error: 'Failed to exchange authorization code for tokens' },
+            { status: 500 }
+        );
+    }
 }

@@ -44,9 +44,9 @@ export async function getAccessTokenFromOauth(code: string): Promise<GetTokenRes
     });
 }
 
-export async function refreshAccessToken(): Promise<GetTokenResponse> {
-    const refresh_token = (await cookies()).get("refresh_token");
-    if (!(refresh_token && refresh_token.value && refresh_token.value !== "" && refresh_token.value !== null)) {
+export async function refreshAccessToken(refreshToken: string): Promise<GetTokenResponse> {
+
+    if (!(refreshToken && refreshToken !== "" && refreshToken !== null)) {
         throw new Error("No refresh token found");
     }
 
@@ -54,7 +54,7 @@ export async function refreshAccessToken(): Promise<GetTokenResponse> {
         grant_type: "refresh_token",
         client_id: process.env.AUTH_CLIENT_ID!,
         client_secret: process.env.AUTH_CLIENT_SECRET!,
-        refresh_token: refresh_token!.value
+        refresh_token: refreshToken,
     }
 
     return await fetch(`${process.env.GIS_AUTH_ENDPOINT}/oauth/token`, {

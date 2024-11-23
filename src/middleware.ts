@@ -1,88 +1,57 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import {getAccessToken, isAccessTokenPresent, isLoggedIn, refreshAccessToken} from "@/app/auth/auth-utils";
-import {GetTokenResponse} from "@/app/auth/auth-types";
-import {getPersonId, isPersonIdPresent} from "@/utils/person-utils";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import {
+  refreshAccessToken,
+} from "@/app/auth/auth-utils";
+import { GetTokenResponse } from "@/app/auth/auth-types";
 
 export async function middleware(request: NextRequest) {
-    const lastUrl = `${process.env.BASE_URL}${request.nextUrl.pathname}`;
-    
-    if (!(await isLoggedIn())) {    
-        const url = new URL(`${process.env.GIS_AUTH_ENDPOINT}/oauth/authorize`);
-        url.searchParams.set("response_type", "code");
-        url.searchParams.set("client_id", process.env.AUTH_CLIENT_ID!);
-        url.searchParams.set("redirect_uri", process.env.AUTH_REDIRECT_URI!);
-        url.searchParams.set("state", "");
-        const response = NextResponse.redirect(url.toString());
+  const lastUrl = `${process.env.BASE_URL}${request.nextUrl.pathname}`;
 
-        response.cookies.set("redirect_uri", lastUrl, {
-            httpOnly: true,
-            secure: true,
-        });
-        
-        return response;
+  const refreshToken = request.headers.get("Refresh-Token");
+
+  if (refreshToken) {
+    try {
+      const tokenResponse: GetTokenResponse = await refreshAccessToken(
+        refreshToken
+      );
+      return NextResponse.json({
+        access_token: tokenResponse.access_token,
+        refresh_token: tokenResponse.refresh_token,
+        expires_in: tokenResponse.expires_in,
+      });
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      return NextResponse.json(
+        { error: "Invalid refresh token or session expired." },
+        { status: 401 }
+      );
     }
+  }
 
-    const response = NextResponse.next();
-    if (!isAccessTokenPresent()) {
-        console.log("No access token found: " + request.url);
-        let refreshTokenResponse: GetTokenResponse;
+  const authUrl = new URL(`${process.env.GIS_AUTH_ENDPOINT}/oauth/authorize`);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("client_id", process.env.AUTH_CLIENT_ID!);
+  authUrl.searchParams.set("redirect_uri", process.env.AUTH_REDIRECT_URI!);
+  authUrl.searchParams.set("state", "");
 
-        try {
-            refreshTokenResponse = await refreshAccessToken();
-        } catch (e) {
-            console.error("Error refreshing access token: " + e);
-            const url = new URL(`${process.env.GIS_AUTH_ENDPOINT}/oauth/authorize`);
-            url.searchParams.set("response_type", "code");
-            url.searchParams.set("client_id", process.env.AUTH_CLIENT_ID!);
-            url.searchParams.set("redirect_uri", process.env.AUTH_REDIRECT_URI!);
-            url.searchParams.set("state", "");
-            const response = NextResponse.redirect(url.toString());
+  const redirectResponse = NextResponse.redirect(authUrl.toString());
 
-            response.cookies.set("redirect_uri", lastUrl, {
-                httpOnly: true,
-                secure: true,
-                sameSite: "strict"
-            });
+  redirectResponse.headers.set("X-Requested-Url", lastUrl);
 
-            return response;
-        }
-        response.cookies.set("access_token", refreshTokenResponse.access_token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict",
-            maxAge: refreshTokenResponse.expires_in
-        });
-
-        response.cookies.set("refresh_token", refreshTokenResponse.refresh_token, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict"
-        });
-    }
-
-    if (!(isPersonIdPresent())) {
-        const personId = await getPersonId(await getAccessToken());
-        response.cookies.set("person_id", personId.toString(), {
-            httpOnly: true,
-            secure: true,
-            sameSite: "strict"
-        });
-    }
-    
-    return response;
+  return redirectResponse;
 }
 
 export const config = {
-    matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - auth (authentication routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         */
-        '/((?!api|auth|_next/static|_next/image|favicon.ico).*)',
-    ],
-}
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - auth (authentication routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    "/((?!api|auth|_next/static|_next/image|favicon.ico).*)",
+  ],
+};
