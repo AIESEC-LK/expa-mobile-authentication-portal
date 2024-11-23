@@ -5,11 +5,12 @@ import {GetTokenResponse} from "@/app/auth/auth-types";
 import {getPersonId, isPersonIdPresent} from "@/utils/person-utils";
 
 export async function middleware(request: NextRequest) {
-    const lastUrl = `${process.env.NEXT_PUBLIC_BASE_URL}${request.nextUrl.pathname}`;
-    if (lastUrl == `${process.env.NEXT_PUBLIC_BASE_URL}/` ) {
-        const url = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/my-projects`);
-        return NextResponse.redirect(url.toString());
-    }
+    console.log("start of middleware 🟢")
+    const lastUrl = `${process.env.BASE_URL}${request.nextUrl.pathname}`;
+    // if (lastUrl == `${process.env.NEXT_PUBLIC_BASE_URL}/` ) {
+    //     const url = new URL(`${process.env.NEXT_PUBLIC_BASE_URL}/my-projects`);
+    //     return NextResponse.redirect(url.toString());
+    // }
     
     if (!isLoggedIn()) {    
         const url = new URL(`${process.env.GIS_AUTH_ENDPOINT}/oauth/authorize`);
