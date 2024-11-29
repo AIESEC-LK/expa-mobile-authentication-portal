@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetTokenResponse } from "../auth/auth-types";
 import { refreshAccessToken } from "../auth/auth-utils";
 
-export async function GET(request: NextRequest){
-
-    const externalAppUrl = request.headers.get("X-Callback-Url"); 
+export async function GET(request: NextRequest) {
+  const externalAppUrl = request.headers.get("X-Callback-Url");
 
   if (!externalAppUrl) {
     return NextResponse.json(
@@ -20,25 +19,24 @@ export async function GET(request: NextRequest){
       const tokenResponse: GetTokenResponse = await refreshAccessToken(
         refreshToken
       );
-      const response = await fetch(externalAppUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          access_token: tokenResponse.access_token,
-          refresh_token: tokenResponse.refresh_token,
-          expires_in: tokenResponse.expires_in,
-        }),
-      });
-      if (!response.ok) {
-        console.error("Failed to notify external application:", await response.text());
-        return NextResponse.json(
-          { error: "Failed to notify external application." },
-          { status: 502 }
-        );
+      const redirectUrl = new URL(externalAppUrl);
+      redirectUrl.searchParams.append(
+        "access_token",
+        tokenResponse.access_token
+      );
+      redirectUrl.searchParams.append(
+        "refresh_token",
+        tokenResponse.refresh_token
+      );
+      redirectUrl.searchParams.append(
+        "expires_in",
+        tokenResponse.expires_in.toString()
+      );
+      if (request.headers.get("X-Requested-With") === "fetch") {
+        return NextResponse.json({ redirectUrl: redirectUrl.toString() });
       }
-      return NextResponse.json({ success: true });
+      return NextResponse.redirect(redirectUrl.toString());
+
     } catch (error) {
       console.error("Error refreshing token:", error);
       return NextResponse.json(
